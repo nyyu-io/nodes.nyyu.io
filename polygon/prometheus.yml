@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'polygon-monitor'
+
+scrape_configs:
+  # Polygon Mainnet Metrics
+  - job_name: 'polygon-mainnet'
+    static_configs:
+      - targets: ['polygon-mainnet:7071']
+        labels:
+          network: 'mainnet'
+
+  # Polygon Mumbai Metrics
+  - job_name: 'polygon-mumbai'
+    static_configs:
+      - targets: ['polygon-mumbai:7071']
+        labels:
+          network: 'mumbai'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

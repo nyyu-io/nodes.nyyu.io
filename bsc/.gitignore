@@ -1,0 +1,33 @@
+# Environment files
+.env
+.env.deploy
+
+# SSH Keys
+*.pem
+*.key
+
+# SSL Certificates
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt
+
+# Logs
+*.log
+
+# Node data (if running locally)
+data/
+
+# Docker volumes
+volumes/
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'solana-monitor'
+
+scrape_configs:
+  # Solana Mainnet Metrics
+  - job_name: 'sol-mainnet'
+    static_configs:
+      - targets: ['sol-mainnet:8899']
+        labels:
+          network: 'mainnet'
+
+  # Solana Devnet Metrics
+  - job_name: 'sol-devnet'
+    static_configs:
+      - targets: ['sol-devnet:8899']
+        labels:
+          network: 'devnet'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

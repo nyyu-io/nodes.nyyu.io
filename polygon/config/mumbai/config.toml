@@ -1,0 +1,121 @@
+# Polygon Mumbai Testnet Bor Configuration
+
+chain = "mumbai"
+
+[log]
+  level = "INFO"
+
+[p2p]
+  max_peers = 30
+  max_pend_peers = 30
+  bind = "0.0.0.0"
+  port = 30303
+  no_disc = false
+  nat = "any"
+
+[heimdall]
+  url = "https://heimdall-api-testnet.polygon.technology"
+  "bor.without" = false
+
+[txpool]
+  locals = []
+  no_locals = false
+  journal = "transactions.rlp"
+  rejournal = 3600000000000
+  price_limit = 1
+  price_bump = 10
+  account_slots = 16
+  global_slots = 16384
+  account_queue = 64
+  global_queue = 1024
+  lifetime = 10800000000000
+
+[miner]
+  mine = false
+  etherbase = ""
+  extra_data = ""
+  gas_limit = 20000000
+  gas_price = "1000000000"
+
+[jsonrpc]
+  ipc_disable = true
+  ipcdisable = true
+  gascap = 50000000
+  txfeecap = 5.0
+
+  [jsonrpc.http]
+    enabled = true
+    port = 8545
+    prefix = ""
+    host = "0.0.0.0"
+    api = ["eth", "net", "web3", "txpool", "bor"]
+    vhosts = ["*"]
+    corsdomain = ["*"]
+
+  [jsonrpc.ws]
+    enabled = true
+    port = 8546
+    prefix = ""
+    host = "0.0.0.0"
+    api = ["eth", "net", "web3", "txpool", "bor"]
+    origins = ["*"]
+
+  [jsonrpc.graphql]
+    enabled = false
+
+  [jsonrpc.auth]
+    jwtsecret = ""
+    addr = "127.0.0.1"
+    port = 8551
+    vhosts = ["localhost"]
+
+[gpo]
+  blocks = 20
+  percentile = 60
+  max_price = "500000000000"
+  ignore_price = "2"
+
+[telemetry]
+  metrics = true
+  expensive = false
+  prometheus_addr = "0.0.0.0:7071"
+  opencollector_endpoint = ""
+
+  [telemetry.influx]
+    influxdb = false
+    endpoint = ""
+    database = ""
+    username = ""
+    password = ""
+    influxdbv2 = false
+    token = ""
+    bucket = ""
+    organization = ""
+
+[cache]
+  cache = 2048
+  gc = 25
+  snapshot = 10
+  database = 50
+  trie = 15
+  noprefetch = false
+  preimages = false
+  txlookuplimit = 0
+
+[accounts]
+  unlock = []
+  password = ""
+  allow_insecure_unlock = false
+  use_lightweight_kdf = false
+  disable_bor_wallet = true
+
+[grpc]
+  addr = ":3131"
+
+[developer]
+  dev = false
+  period = 0
+
+[parallelevm]
+  enable = true
+  procs = 4

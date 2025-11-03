@@ -1,0 +1,174 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy with SSL (Optional - only starts if SSL is configured)
+  nginx:
+    image: nginx:alpine
+    container_name: bsc-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/acme-challenge:/var/www/acme-challenge
+    networks:
+      - bsc-network
+    depends_on:
+      - bsc-mainnet
+      - bsc-testnet
+      - grafana
+      - prometheus
+    profiles:
+      - ssl
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # BSC Node for Mainnet
+  bsc-mainnet:
+    image: ghcr.io/bnb-chain/bsc:latest
+    container_name: bsc-mainnet-monitor
+    restart: unless-stopped
+    ports:
+      - "8575:8545"   # HTTP RPC
+      - "8576:8546"   # WebSocket RPC
+      - "30313:30311" # P2P
+      - "30313:30311/udp" # P2P UDP
+    volumes:
+      - bsc-mainnet-data:/data
+      - ./config/mainnet/config.toml:/bsc/config/config.toml:ro
+      - ./config/mainnet/genesis.json:/bsc/config/genesis.json:ro
+    command: >
+      --config /bsc/config/config.toml
+      --datadir /data
+      --cache 8000
+      --rpc.allow-unprotected-txs
+      --http
+      --http.addr 0.0.0.0
+      --http.port 8545
+      --http.api eth,net,web3,txpool,parlia
+      --http.corsdomain "*"
+      --http.vhosts "*"
+      --ws
+      --ws.addr 0.0.0.0
+      --ws.port 8546
+      --ws.api eth,net,web3,txpool,parlia
+      --ws.origins "*"
+      --maxpeers 50
+      --metrics
+      --metrics.addr 0.0.0.0
+      --metrics.port 6060
+    networks:
+      - bsc-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8545 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # BSC Node for Testnet
+  bsc-testnet:
+    image: ghcr.io/bnb-chain/bsc:latest
+    container_name: bsc-testnet-monitor
+    restart: unless-stopped
+    ports:
+      - "8577:8545"   # HTTP RPC
+      - "8578:8546"   # WebSocket RPC
+      - "30314:30311" # P2P
+      - "30314:30311/udp" # P2P UDP
+    volumes:
+      - bsc-testnet-data:/data
+      - ./config/testnet/config.toml:/bsc/config/config.toml:ro
+      - ./config/testnet/genesis.json:/bsc/config/genesis.json:ro
+    command: >
+      --config /bsc/config/config.toml
+      --datadir /data
+      --cache 4000
+      --rpc.allow-unprotected-txs
+      --http
+      --http.addr 0.0.0.0
+      --http.port 8545
+      --http.api eth,net,web3,txpool,parlia
+      --http.corsdomain "*"
+      --http.vhosts "*"
+      --ws
+      --ws.addr 0.0.0.0
+      --ws.port 8546
+      --ws.api eth,net,web3,txpool,parlia
+      --ws.origins "*"
+      --maxpeers 30
+      --metrics
+      --metrics.addr 0.0.0.0
+      --metrics.port 6060
+    networks:
+      - bsc-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8545 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Prometheus for monitoring BSC metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: bsc-prometheus
+    restart: unless-stopped
+    ports:
+      - "9092:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.external-url=/prometheus'
+      - '--web.route-prefix=/'
+    networks:
+      - bsc-network
+    depends_on:
+      - bsc-mainnet
+      - bsc-testnet
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: bsc-grafana
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3002}
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    networks:
+      - bsc-network
+    depends_on:
+      - prometheus
+
+networks:
+  bsc-network:
+    driver: bridge
+
+volumes:
+  bsc-mainnet-data:
+    driver: local
+  bsc-testnet-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

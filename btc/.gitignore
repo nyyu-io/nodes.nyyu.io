@@ -1,0 +1,32 @@
+# Environment files
+.env
+.env.deploy
+.env.local
+
+# SSL Certificates
+nginx/ssl/*.pem
+*.pem
+*.key
+*.crt
+
+# SSH Keys
+*.pem
+!Azure-NYYU.pem.example
+
+# Backup files
+*.bak
+*.backup
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Nginx cache
+nginx/cache/
+
+# Temporary files
+tmp/
+temp/

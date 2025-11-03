@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'bsc-monitor'
+
+scrape_configs:
+  # BSC Mainnet Metrics
+  - job_name: 'bsc-mainnet'
+    metrics_path: '/debug/metrics/prometheus'
+    static_configs:
+      - targets: ['bsc-mainnet:6060']
+        labels:
+          network: 'bsc-mainnet'
+          chain_id: '56'
+          client: 'bsc'
+
+  # BSC Testnet Metrics
+  - job_name: 'bsc-testnet'
+    metrics_path: '/debug/metrics/prometheus'
+    static_configs:
+      - targets: ['bsc-testnet:6060']
+        labels:
+          network: 'bsc-testnet'
+          chain_id: '97'
+          client: 'bsc'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

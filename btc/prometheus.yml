@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'btc-monitor'
+
+scrape_configs:
+  # Bitcoin Mainnet Metrics
+  - job_name: 'bitcoin-mainnet'
+    static_configs:
+      - targets: ['btc-exporter-mainnet:9332']
+        labels:
+          network: 'mainnet'
+          chain: 'bitcoin'
+          client: 'bitcoin-core'
+
+  # Bitcoin Testnet Metrics
+  - job_name: 'bitcoin-testnet'
+    static_configs:
+      - targets: ['btc-exporter-testnet:9333']
+        labels:
+          network: 'testnet'
+          chain: 'bitcoin'
+          client: 'bitcoin-core'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

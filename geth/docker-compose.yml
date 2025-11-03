@@ -1,0 +1,263 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy with SSL (Optional - only starts if SSL is configured)
+  nginx:
+    image: nginx:alpine
+    container_name: geth-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/acme-challenge:/var/www/acme-challenge
+    networks:
+      - geth-network
+    depends_on:
+      - geth-mainnet
+      - geth-sepolia
+      - lighthouse-mainnet
+      - lighthouse-sepolia
+      - grafana
+      - prometheus
+    profiles:
+      - ssl
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Lighthouse Consensus Client for Ethereum Mainnet
+  lighthouse-mainnet:
+    image: sigp/lighthouse:latest
+    container_name: lighthouse-mainnet
+    restart: unless-stopped
+    ports:
+      - "9000:9000"     # P2P TCP
+      - "9000:9000/udp" # P2P UDP
+      - "5052:5052"     # HTTP API
+    volumes:
+      - lighthouse-mainnet-data:/root/.lighthouse
+      - ./jwt/mainnet/jwt.hex:/root/jwt.hex:ro
+    command: >
+      lighthouse bn
+      --network mainnet
+      --datadir /root/.lighthouse
+      --http
+      --http-address 0.0.0.0
+      --http-port 5052
+      --execution-endpoint http://geth-mainnet:8551
+      --execution-jwt /root/jwt.hex
+      --checkpoint-sync-url https://mainnet.checkpoint.sigp.io
+      --metrics
+      --metrics-address 0.0.0.0
+      --metrics-port 5054
+    networks:
+      - geth-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5052/eth/v1/node/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # Geth Execution Client for Ethereum Mainnet
+  geth-mainnet:
+    image: ethereum/client-go:latest
+    container_name: geth-mainnet-monitor
+    restart: unless-stopped
+    ports:
+      - "8545:8545"   # HTTP RPC
+      - "8546:8546"   # WebSocket RPC
+      - "30303:30303" # P2P
+      - "30303:30303/udp" # P2P UDP
+    volumes:
+      - geth-mainnet-data:/root/.ethereum
+      - ./jwt/mainnet/jwt.hex:/root/jwt.hex:ro
+      - ./scripts/geth-mainnet.sh:/scripts/geth-start.sh:ro
+    command: >
+      --syncmode snap
+      --http
+      --http.addr 0.0.0.0
+      --http.port 8545
+      --http.api eth,net,web3,txpool
+      --http.corsdomain "*"
+      --http.vhosts "*"
+      --ws
+      --ws.addr 0.0.0.0
+      --ws.port 8546
+      --ws.api eth,net,web3,txpool
+      --ws.origins "*"
+      --authrpc.addr 0.0.0.0
+      --authrpc.port 8551
+      --authrpc.vhosts "*"
+      --authrpc.jwtsecret /root/jwt.hex
+      --cache 2048
+      --maxpeers 25
+      --metrics
+      --metrics.addr 0.0.0.0
+      --metrics.port 6060
+      --gcmode full
+      --state.scheme path
+      --txlookuplimit 10000
+    networks:
+      - geth-network
+    depends_on:
+      - lighthouse-mainnet
+    healthcheck:
+      test: ["CMD", "geth", "attach", "http://localhost:8545", "--exec", "eth.syncing"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Lighthouse Consensus Client for Sepolia Testnet
+  lighthouse-sepolia:
+    image: sigp/lighthouse:latest
+    container_name: lighthouse-sepolia
+    restart: unless-stopped
+    ports:
+      - "9001:9000"     # P2P TCP
+      - "9001:9000/udp" # P2P UDP
+      - "5053:5052"     # HTTP API
+    volumes:
+      - lighthouse-sepolia-data:/root/.lighthouse
+      - ./jwt/sepolia/jwt.hex:/root/jwt.hex:ro
+    command: >
+      lighthouse bn
+      --network sepolia
+      --datadir /root/.lighthouse
+      --http
+      --http-address 0.0.0.0
+      --http-port 5052
+      --execution-endpoint http://geth-sepolia:8551
+      --execution-jwt /root/jwt.hex
+      --checkpoint-sync-url https://checkpoint-sync.sepolia.ethpandaops.io
+      --metrics
+      --metrics-address 0.0.0.0
+      --metrics-port 5054
+    networks:
+      - geth-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5052/eth/v1/node/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # Geth Execution Client for Sepolia Testnet
+  geth-sepolia:
+    image: ethereum/client-go:latest
+    container_name: geth-sepolia-monitor
+    restart: unless-stopped
+    ports:
+      - "8547:8545"   # HTTP RPC
+      - "8548:8546"   # WebSocket RPC
+      - "30304:30303" # P2P
+      - "30304:30303/udp" # P2P UDP
+    volumes:
+      - geth-sepolia-data:/root/.ethereum
+      - ./jwt/sepolia/jwt.hex:/root/jwt.hex:ro
+      - ./scripts/geth-sepolia.sh:/scripts/geth-start.sh:ro
+    command: >
+      --sepolia
+      --syncmode snap
+      --http
+      --http.addr 0.0.0.0
+      --http.port 8545
+      --http.api eth,net,web3,txpool
+      --http.corsdomain "*"
+      --http.vhosts "*"
+      --ws
+      --ws.addr 0.0.0.0
+      --ws.port 8546
+      --ws.api eth,net,web3,txpool
+      --ws.origins "*"
+      --authrpc.addr 0.0.0.0
+      --authrpc.port 8551
+      --authrpc.vhosts "*"
+      --authrpc.jwtsecret /root/jwt.hex
+      --cache 1024
+      --maxpeers 25
+      --metrics
+      --metrics.addr 0.0.0.0
+      --metrics.port 6060
+      --gcmode full
+      --state.scheme path
+      --txlookuplimit 10000
+    networks:
+      - geth-network
+    depends_on:
+      - lighthouse-sepolia
+    healthcheck:
+      test: ["CMD", "geth", "attach", "http://localhost:8545", "--exec", "eth.syncing"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Optional: Prometheus for monitoring Geth metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: geth-prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.external-url=/prometheus'
+      - '--web.route-prefix=/'
+    networks:
+      - geth-network
+    depends_on:
+      - geth-mainnet
+      - geth-sepolia
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: geth-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3001}
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    networks:
+      - geth-network
+    depends_on:
+      - prometheus
+
+networks:
+  geth-network:
+    driver: bridge
+
+volumes:
+  geth-mainnet-data:
+    driver: local
+  geth-sepolia-data:
+    driver: local
+  lighthouse-mainnet-data:
+    driver: local
+  lighthouse-sepolia-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

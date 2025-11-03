@@ -1,0 +1,37 @@
+# Environment files
+.env
+.env.deploy
+.env.local
+
+# SSL Certificates
+nginx/ssl/*.pem
+*.pem
+*.key
+*.crt
+
+# SSH Keys
+*.pem
+!rcp_eth.pem.example
+
+# Backup files
+*.bak
+*.backup
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Nginx cache
+nginx/cache/
+
+# Temporary files
+tmp/
+temp/
+
+# Solana data directories
+config/*/ledger/
+config/*/accounts/
+config/*/snapshots/

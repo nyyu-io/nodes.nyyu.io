@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # Solana Mainnet RPC Node
+  sol-mainnet:
+    image: solanalabs/solana:v1.18.22
+    container_name: sol-mainnet-monitor
+    restart: unless-stopped
+    ports:
+      - "8899:8899"   # RPC HTTP
+      - "8900:8900"   # WebSocket
+      - "8001:8001"   # Gossip
+      - "8002:8002"   # Repair
+      - "8003:8003"   # Serve Repair
+      - "8004:8004"   # TVU
+      - "8005:8005"   # TPU
+    volumes:
+      - sol-mainnet-ledger:/sol/ledger
+      - sol-mainnet-accounts:/sol/accounts
+      - sol-mainnet-snapshots:/sol/snapshots
+      - ./config/mainnet/validator.sh:/sol/validator.sh
+    command: /sol/validator.sh
+    environment:
+      - RUST_LOG=info
+      - SOLANA_METRICS_CONFIG=host=http://prometheus:9090,db=solana,u=solana,p=solana
+    networks:
+      - sol-network
+    healthcheck:
+      test: ["CMD-SHELL", "solana --url http://localhost:8899 cluster-version || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 300s
+
+  # Solana Devnet RPC Node
+  sol-devnet:
+    image: solanalabs/solana:v1.18.22
+    container_name: sol-devnet-monitor
+    restart: unless-stopped
+    ports:
+      - "8898:8899"   # RPC HTTP (mapped to 8898 on host)
+      - "8901:8900"   # WebSocket (mapped to 8901 on host)
+      - "8011:8001"   # Gossip
+      - "8012:8002"   # Repair
+      - "8013:8003"   # Serve Repair
+      - "8014:8004"   # TVU
+      - "8015:8005"   # TPU
+    volumes:
+      - sol-devnet-ledger:/sol/ledger
+      - sol-devnet-accounts:/sol/accounts
+      - sol-devnet-snapshots:/sol/snapshots
+      - ./config/devnet/validator.sh:/sol/validator.sh
+    command: /sol/validator.sh
+    environment:
+      - RUST_LOG=info
+      - SOLANA_METRICS_CONFIG=host=http://prometheus:9090,db=solana,u=solana,p=solana
+    networks:
+      - sol-network
+    healthcheck:
+      test: ["CMD-SHELL", "solana --url http://localhost:8899 cluster-version || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sol-prometheus
+    restart: unless-stopped
+    ports:
+      - "9095:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - sol-network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sol-grafana
+    restart: unless-stopped
+    ports:
+      - "3005:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3005}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
+    networks:
+      - sol-network
+    depends_on:
+      - prometheus
+
+  # Nginx reverse proxy (optional, for SSL)
+  nginx:
+    image: nginx:alpine
+    container_name: sol-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/acme-challenge:/var/www/acme-challenge:ro
+    networks:
+      - sol-network
+    depends_on:
+      - sol-mainnet
+      - sol-devnet
+      - grafana
+      - prometheus
+    profiles:
+      - ssl
+
+networks:
+  sol-network:
+    driver: bridge
+
+volumes:
+  sol-mainnet-ledger:
+    driver: local
+  sol-mainnet-accounts:
+    driver: local
+  sol-mainnet-snapshots:
+    driver: local
+  sol-devnet-ledger:
+    driver: local
+  sol-devnet-accounts:
+    driver: local
+  sol-devnet-snapshots:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'tron-monitor'
+
+scrape_configs:
+  # Tron Mainnet Metrics via JMX Exporter
+  - job_name: 'tron-mainnet'
+    static_configs:
+      - targets: ['jmx-exporter-mainnet:5556']
+        labels:
+          network: 'mainnet'
+          chain: 'tron'
+          client: 'java-tron'
+
+  # Tron Nile Testnet Metrics via JMX Exporter
+  - job_name: 'tron-nile'
+    static_configs:
+      - targets: ['jmx-exporter-nile:5556']
+        labels:
+          network: 'nile'
+          chain: 'tron'
+          client: 'java-tron'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
